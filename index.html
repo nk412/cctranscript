@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code Transcript Viewer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root,html[data-theme="dark"]{
+  --bg:#0d1117; --surface:#161b22; --border:#30363d;
+  --text:#e6edf3; --muted:#8b949e;
+  --u-bg:#172a45; --u-border:#1f6feb; --u-label:#58a6ff;
+  --a-bg:#161b22; --a-border:#30363d; --a-label:#c084fc;
+  --tool-bg:#0d1117; --tool-border:#21262d;
+  --accent:#c084fc;
+}
+html[data-theme="light"]{
+  --bg:#ffffff; --surface:#f6f8fa; --border:#d0d7de;
+  --text:#1f2328; --muted:#656d76;
+  --u-bg:#ddf4ff; --u-border:#54aeff; --u-label:#0969da;
+  --a-bg:#f6f8fa; --a-border:#d0d7de; --a-label:#8250df;
+  --tool-bg:#f6f8fa; --tool-border:#d0d7de;
+  --accent:#8250df;
+}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  font-size:14px; line-height:1.55; background:var(--bg); color:var(--text);
+  padding:20px 12px; max-width:920px; margin:0 auto;
+}
+
+/* landing form */
+.landing{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:24px}
+.landing h1{font-size:22px;color:var(--text);font-weight:700}
+.landing p{color:var(--muted);font-size:13px;max-width:400px;text-align:center}
+.landing form{display:flex;gap:8px;width:100%;max-width:560px}
+.landing input[type=text]{
+  flex:1;padding:10px 14px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);font-size:14px;outline:none;
+  font-family:inherit;
+}
+.landing input[type=text]:focus{border-color:var(--accent)}
+.landing input[type=text]::placeholder{color:var(--muted)}
+.landing button{
+  padding:10px 20px;border-radius:8px;border:none;
+  background:var(--accent);color:#000;font-weight:600;font-size:14px;
+  cursor:pointer;white-space:nowrap;
+}
+.landing button:hover{opacity:.9}
+.landing button:disabled{opacity:.5;cursor:wait}
+.error{color:#f85149;font-size:13px;margin-top:8px;text-align:center}
+.back-btn{
+  position:fixed;top:12px;left:12px;padding:6px 14px;border-radius:6px;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted);
+  font-size:12px;cursor:pointer;z-index:10;
+}
+.back-btn:hover{color:var(--text);border-color:var(--muted)}
+.theme-btn{
+  position:fixed;top:12px;right:12px;padding:6px 14px;border-radius:6px;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted);
+  font-size:14px;cursor:pointer;z-index:10;line-height:1;
+}
+.theme-btn:hover{color:var(--text);border-color:var(--muted)}
+
+/* header */
+.header{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:24px}
+.header pre{white-space:pre-wrap;font-family:'SF Mono','Fira Code',Consolas,monospace;font-size:12px;color:var(--muted);line-height:1.4}
+
+/* rows */
+.row{display:flex;margin-bottom:14px}
+.row-l{justify-content:flex-start}
+.row-r{justify-content:flex-end}
+
+/* bubbles */
+.bubble{max-width:82%;padding:10px 14px;border-radius:14px;overflow-wrap:break-word;word-break:break-word}
+.bubble-u{background:var(--u-bg);border:1px solid var(--u-border);border-bottom-left-radius:4px}
+.bubble-a{background:var(--a-bg);border:1px solid var(--a-border);border-bottom-right-radius:4px}
+
+.label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
+.label-u{color:var(--u-label)}
+.label-a{color:var(--a-label)}
+
+.body{white-space:pre-wrap;font-size:12.5px;line-height:1.5;font-family:'SF Mono','Fira Code',Consolas,monospace}
+
+/* prose */
+.prose{margin:4px 0;padding:6px 0}
+.prose:first-child{padding-top:0;margin-top:0}
+.body > .prose + .tool-group,
+.body > .prose + .tool-group-outer,
+.body > .tool-group + .prose,
+.body > .tool-group-outer + .prose{border-top:1px solid var(--border);padding-top:8px;margin-top:8px}
+
+/* system */
+.sys-row{display:flex;justify-content:center;margin:8px 0}
+.sys{color:var(--muted);font-size:11px;font-style:italic;padding:3px 14px;border-radius:99px;border:1px solid var(--border);background:var(--surface)}
+
+/* tool group */
+.tool-group-outer{margin:6px 0;border:1px solid var(--tool-border);border-radius:8px;background:var(--tool-bg);overflow:hidden}
+.tool-group-summary{padding:8px 12px;cursor:pointer;font-size:12px;color:var(--muted);user-select:none;list-style:none;font-weight:600}
+.tool-group-summary::-webkit-details-marker{display:none}
+.tool-group-summary::before{content:'▶ ';font-size:9px}
+details[open]>.tool-group-summary::before{content:'▼ '}
+.tool-group-inner{border-top:1px solid var(--tool-border);padding:4px}
+
+/* single tool */
+.tool-group{margin:6px 0}
+.tool-item{border:1px solid var(--tool-border);border-radius:6px;background:var(--tool-bg);overflow:hidden;margin:3px 0}
+.tool-item-summary{
+  padding:6px 10px;cursor:pointer;font-family:'SF Mono','Fira Code',Consolas,monospace;
+  font-size:11.5px;color:var(--muted);user-select:none;list-style:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.tool-item-summary::-webkit-details-marker{display:none}
+.tool-item-summary::before{content:'▶ ';font-size:8px}
+details[open]>.tool-item-summary::before{content:'▼ '}
+.tool-name{color:var(--accent);font-weight:600;margin-right:6px}
+.tool-args{color:var(--muted)}
+.tool-output{
+  margin:0;padding:8px 10px;font-family:'SF Mono','Fira Code',Consolas,monospace;
+  font-size:11px;line-height:1.4;color:var(--muted);
+  border-top:1px solid var(--tool-border);white-space:pre-wrap;
+  max-height:300px;overflow-y:auto;
+}
+
+/* collapsible prose */
+.more{display:inline}
+.more-toggle{display:block;cursor:pointer;color:var(--accent);font-size:11px;user-select:none;list-style:none;padding:3px 0}
+.more-toggle::-webkit-details-marker{display:none}
+.more-toggle:hover{text-decoration:underline}
+details[open]>.more-toggle{font-size:0;padding:0;height:0;overflow:hidden}
+.more-content{white-space:pre-wrap}
+</style>
+</head>
+<body>
+
+<button class="theme-btn" id="theme-btn" title="Toggle light/dark mode"></button>
+
+<div id="landing" class="landing">
+  <h1>Claude Code Transcript Viewer</h1>
+  <p>Paste a public GitHub Gist URL containing a Claude Code transcript.</p>
+  <form id="gist-form">
+    <input type="text" id="gist-input" placeholder="https://gist.github.com/user/abc123..." autocomplete="off" autofocus>
+    <button type="submit" id="load-btn">Load</button>
+  </form>
+  <div id="error" class="error"></div>
+</div>
+
+<div id="output" style="display:none"></div>
+
+<script>
+// ── Escaping ──
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// ── Parser ──
+const TOOL_RE = /^(Bash|Read|Write|Edit|Update|Glob|Grep|Skill|Agent|Explore)\(/;
+const SUBTASK_RE = /^\s+[├└│]/;
+
+function parseTranscript(text) {
+  const lines = text.split('\n');
+  const turns = [];
+  let i = 0;
+
+  // header
+  const hlines = [];
+  while (i < lines.length) {
+    const s = lines[i].trim();
+    if (s.startsWith('❯') || s.startsWith('⏺')) break;
+    hlines.push(lines[i]);
+    i++;
+  }
+  if (hlines.length) turns.push({ role: 'header', blocks: [{ kind: 'prose', lines: hlines }] });
+
+  let curAgent = null;
+  function flushAgent() {
+    if (curAgent && curAgent.blocks.length) turns.push(curAgent);
+    curAgent = null;
+  }
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const s = line.trim();
+
+    // user
+    if (s.startsWith('❯')) {
+      flushAgent();
+      const first = s.replace(/^❯\s?/, '');
+      const ulines = [first];
+      i++;
+      while (i < lines.length) {
+        const ns = lines[i].trim();
+        if (!ns || ns.startsWith('❯') || ns.startsWith('⏺') || ns.startsWith('✻') || ns.startsWith('⎿')) break;
+        if (SUBTASK_RE.test(lines[i])) break;
+        ulines.push(ns);
+        i++;
+      }
+      while (i < lines.length && lines[i].trim().startsWith('⎿')) i++;
+      turns.push({ role: 'user', blocks: [{ kind: 'prose', lines: ulines }] });
+      continue;
+    }
+
+    // system
+    if (s.startsWith('✻')) {
+      flushAgent();
+      turns.push({ role: 'system', blocks: [{ kind: 'system', lines: [s.replace(/^✻\s?/, '')] }] });
+      i++;
+      continue;
+    }
+
+    // agent block
+    if (s.startsWith('⏺')) {
+      if (!curAgent) curAgent = { role: 'agent', blocks: [] };
+      const first = s.replace(/^⏺\s?/, '');
+      const blines = [first];
+      i++;
+      while (i < lines.length) {
+        const ns = lines[i].trim();
+        if (ns.startsWith('❯') || ns.startsWith('⏺') || ns.startsWith('✻')) break;
+        blines.push(lines[i]);
+        i++;
+      }
+      curAgent.blocks.push({ kind: TOOL_RE.test(first) ? 'tool' : 'prose', lines: blines });
+      continue;
+    }
+
+    // subtask
+    if (SUBTASK_RE.test(line)) {
+      if (!curAgent) curAgent = { role: 'agent', blocks: [] };
+      const slines = [line];
+      i++;
+      while (i < lines.length) {
+        const ns = lines[i].trim();
+        if (ns.startsWith('❯') || ns.startsWith('⏺') || ns.startsWith('✻')) break;
+        if (!SUBTASK_RE.test(lines[i]) && ns) break;
+        slines.push(lines[i]);
+        i++;
+      }
+      curAgent.blocks.push({ kind: 'subtask', lines: slines });
+      continue;
+    }
+
+    i++;
+  }
+  flushAgent();
+  return turns;
+}
+
+// ── Renderer ──
+const PROSE_COLLAPSE = 12;
+
+function toolSummary(firstLine) {
+  const m = firstLine.match(/^(Bash|Read|Write|Edit|Update|Glob|Grep|Skill|Agent|Explore)\((.*)$/);
+  if (!m) return ['Tool', firstLine];
+  let args = m[2].replace(/\)$/, '').trim();
+  if (args.length > 90) args = args.slice(0, 90) + '…';
+  return [m[1], args];
+}
+
+function toolOutputLines(block) {
+  const out = [];
+  let capturing = false;
+  for (const ln of block.lines.slice(1)) {
+    const s = ln.trim();
+    if (s.startsWith('⎿')) { capturing = true; out.push(s.replace(/^⎿\s?/, '')); }
+    else if (capturing) out.push(ln);
+  }
+  return out;
+}
+
+function renderSingleTool(block) {
+  const [name, args] = toolSummary(block.lines[0]);
+  const output = toolOutputLines(block);
+  let outputHtml = '';
+  if (output.length) {
+    const t = esc(output.join('\n')).trim();
+    if (t) outputHtml = `<pre class="tool-output">${t}</pre>`;
+  }
+  const summary = `<span class="tool-name">${esc(name)}</span>` +
+    (args ? `<span class="tool-args">${esc(args)}</span>` : '');
+  return `<details class="tool-item"><summary class="tool-item-summary">${summary}</summary>${outputHtml}</details>`;
+}
+
+function renderToolGroup(tools) {
+  if (tools.length === 1) return `<div class="tool-group">${renderSingleTool(tools[0])}</div>`;
+  const inner = tools.map(renderSingleTool).join('\n');
+  return `<details class="tool-group-outer"><summary class="tool-group-summary">${tools.length} tool calls</summary><div class="tool-group-inner">${inner}</div></details>`;
+}
+
+function renderProse(block) {
+  const text = block.lines.join('\n').trim();
+  if (!text) return '';
+  const lines = text.split('\n');
+  if (lines.length <= PROSE_COLLAPSE) return `<div class="prose">${esc(text)}</div>`;
+  const visible = esc(lines.slice(0, PROSE_COLLAPSE).join('\n'));
+  const hidden = esc(lines.slice(PROSE_COLLAPSE).join('\n'));
+  const n = lines.length - PROSE_COLLAPSE;
+  return `<div class="prose">${visible}<details class="more"><summary class="more-toggle">${n} more lines</summary><div class="more-content">${hidden}</div></details></div>`;
+}
+
+function renderSubtask(block) {
+  const text = esc(block.lines.join('\n').trim());
+  return `<details class="tool-group-outer"><summary class="tool-group-summary">Sub-agents</summary><pre class="tool-output">${text}</pre></details>`;
+}
+
+function renderAgentTurn(turn) {
+  const segments = [];
+  let toolBuf = [];
+  function flushTools() {
+    if (toolBuf.length) { segments.push(renderToolGroup(toolBuf)); toolBuf = []; }
+  }
+  for (const block of turn.blocks) {
+    if (block.kind === 'tool') { toolBuf.push(block); }
+    else if (block.kind === 'subtask') { flushTools(); segments.push(renderSubtask(block)); }
+    else { flushTools(); const r = renderProse(block); if (r) segments.push(r); }
+  }
+  flushTools();
+  return segments.join('\n');
+}
+
+function renderTurns(turns) {
+  return turns.map(turn => {
+    if (turn.role === 'header') {
+      const t = esc(turn.blocks[0]?.lines.join('\n') || '');
+      return `<div class="header"><pre>${t}</pre></div>`;
+    }
+    if (turn.role === 'system') {
+      const t = esc(turn.blocks[0]?.lines.join('\n') || '');
+      return `<div class="sys-row"><span class="sys">${t}</span></div>`;
+    }
+    if (turn.role === 'user') {
+      const t = esc(turn.blocks[0]?.lines.join('\n') || '');
+      return `<div class="row row-l"><div class="bubble bubble-u"><div class="label label-u">You</div><div class="body">${t}</div></div></div>`;
+    }
+    const inner = renderAgentTurn(turn);
+    if (!inner.trim()) return '';
+    return `<div class="row row-r"><div class="bubble bubble-a"><div class="label label-a">Claude</div><div class="body">${inner}</div></div></div>`;
+  }).join('\n');
+}
+
+// ── Gist loading ──
+function extractGistId(input) {
+  input = input.trim();
+  // full URL: https://gist.github.com/user/ID or https://gist.github.com/ID
+  const urlMatch = input.match(/gist\.github\.com\/(?:[^/]+\/)?([a-f0-9]+)/i);
+  if (urlMatch) return urlMatch[1];
+  // bare ID
+  if (/^[a-f0-9]+$/i.test(input)) return input;
+  return null;
+}
+
+async function loadGist(gistId) {
+  const resp = await fetch(`https://api.github.com/gists/${gistId}`);
+  if (!resp.ok) throw new Error(`GitHub API returned ${resp.status}`);
+  const data = await resp.json();
+  const files = Object.values(data.files);
+  if (!files.length) throw new Error('Gist has no files');
+  // pick the first text file
+  const file = files.find(f => f.language === 'Text' || f.type?.startsWith('text/')) || files[0];
+  if (file.truncated && file.raw_url) {
+    const raw = await fetch(file.raw_url);
+    return await raw.text();
+  }
+  return file.content;
+}
+
+// ── UI wiring ──
+const landing = document.getElementById('landing');
+const output = document.getElementById('output');
+const form = document.getElementById('gist-form');
+const input = document.getElementById('gist-input');
+const btn = document.getElementById('load-btn');
+const errorEl = document.getElementById('error');
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  errorEl.textContent = '';
+  const gistId = extractGistId(input.value);
+  if (!gistId) { errorEl.textContent = 'Invalid gist URL or ID'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+  try {
+    const text = await loadGist(gistId);
+    const turns = parseTranscript(text);
+    if (turns.length === 0) throw new Error('No messages parsed from transcript');
+    landing.style.display = 'none';
+    output.style.display = 'block';
+    output.innerHTML = `<button class="back-btn" onclick="location.reload()">← Back</button>\n` + renderTurns(turns);
+    // update URL hash for shareability
+    history.replaceState(null, '', '#' + gistId);
+  } catch (err) {
+    errorEl.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Load';
+  }
+});
+
+// ── Theme toggle ──
+const themeBtn = document.getElementById('theme-btn');
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  themeBtn.textContent = t === 'dark' ? '\u2600\uFE0E' : '\u263E\uFE0E';
+  localStorage.setItem('theme', t);
+}
+themeBtn.addEventListener('click', () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
+setTheme(localStorage.getItem('theme') || 'dark');
+
+// auto-load from hash
+if (location.hash.length > 1) {
+  input.value = location.hash.slice(1);
+  form.dispatchEvent(new Event('submit'));
+}
+</script>
+</body>
+</html>
