@@ -365,7 +365,7 @@ form.addEventListener('submit', async e => {
     if (turns.length === 0) throw new Error('No messages parsed from transcript');
     landing.style.display = 'none';
     output.style.display = 'block';
-    output.innerHTML = `<a class="back-btn" href="index.html">← Home</a>\n` + renderTurns(turns);
+    output.innerHTML = `<a class="back-btn" href="./">← Home</a>\n` + renderTurns(turns);
     history.pushState({gist: gistId}, '', '#' + gistId);
   } catch (err) {
     errorEl.textContent = err.message;
