@@ -42,7 +42,7 @@ body{
 .back-btn{
   display:inline-block;margin-bottom:20px;padding:4px 10px;
   border:1px solid #ccc;background:#fff;color:#555;
-  font-size:12px;cursor:pointer;font-family:inherit;
+  font-size:12px;cursor:pointer;font-family:inherit;text-decoration:none;
 }
 .back-btn:hover{color:#111;border-color:#888}
 
@@ -365,7 +365,7 @@ form.addEventListener('submit', async e => {
     if (turns.length === 0) throw new Error('No messages parsed from transcript');
     landing.style.display = 'none';
     output.style.display = 'block';
-    output.innerHTML = `<button class="back-btn" onclick="goBack()">← Back</button>\n` + renderTurns(turns);
+    output.innerHTML = `<a class="back-btn" href="index.html">← Home</a>\n` + renderTurns(turns);
     history.pushState({gist: gistId}, '', '#' + gistId);
   } catch (err) {
     errorEl.textContent = err.message;
@@ -381,10 +381,6 @@ function showLanding() {
   landing.style.display = '';
   input.value = '';
   input.focus();
-}
-
-function goBack() {
-  history.back();
 }
 
 window.addEventListener('popstate', () => {
