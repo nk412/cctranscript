@@ -19,6 +19,10 @@ body{
 .landing{display:flex;flex-direction:column;min-height:60vh;justify-content:center;gap:16px;max-width:560px;margin:0 auto}
 .landing h1{font-size:16px;font-weight:600}
 .landing p{color:#555;font-size:12px}
+.instructions{color:#555;font-size:12px;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.instructions code{background:#f0f0f0;padding:1px 5px;font-family:inherit;font-size:11px}
+.instructions a{color:#555;text-decoration:underline}
+.instructions a:hover{color:#111}
 .landing form{display:flex;gap:8px}
 .landing input[type=text]{
   flex:1;padding:8px 10px;border:1px solid #ccc;
@@ -113,7 +117,11 @@ details[open]>.more-toggle{font-size:0;padding:0;height:0;overflow:hidden}
 
 <div id="landing" class="landing">
   <h1>Claude Code Transcript Viewer</h1>
-  <p>Paste a public GitHub Gist URL containing a Claude Code transcript.</p>
+  <ol class="instructions">
+    <li>Export your Claude Code transcript with <code>/export</code> to clipboard</li>
+    <li>Create a secret gist at <a href="https://gist.github.com" target="_blank">gist.github.com</a> and paste it</li>
+    <li>Paste the gist link below</li>
+  </ol>
   <form id="gist-form">
     <input type="text" id="gist-input" placeholder="https://gist.github.com/user/abc123..." autocomplete="off" autofocus>
     <button type="submit" id="load-btn">Load</button>
@@ -357,8 +365,8 @@ form.addEventListener('submit', async e => {
     if (turns.length === 0) throw new Error('No messages parsed from transcript');
     landing.style.display = 'none';
     output.style.display = 'block';
-    output.innerHTML = `<button class="back-btn" onclick="location.reload()">← Back</button>\n` + renderTurns(turns);
-    history.replaceState(null, '', '#' + gistId);
+    output.innerHTML = `<button class="back-btn" onclick="goBack()">← Back</button>\n` + renderTurns(turns);
+    history.pushState({gist: gistId}, '', '#' + gistId);
   } catch (err) {
     errorEl.textContent = err.message;
   } finally {
@@ -367,8 +375,30 @@ form.addEventListener('submit', async e => {
   }
 });
 
+function showLanding() {
+  output.style.display = 'none';
+  output.innerHTML = '';
+  landing.style.display = '';
+  input.value = '';
+  input.focus();
+}
+
+function goBack() {
+  history.back();
+}
+
+window.addEventListener('popstate', () => {
+  if (location.hash.length > 1) {
+    input.value = location.hash.slice(1);
+    form.dispatchEvent(new Event('submit'));
+  } else {
+    showLanding();
+  }
+});
+
 // auto-load from hash
 if (location.hash.length > 1) {
+  history.replaceState({gist: location.hash.slice(1)}, '');
   input.value = location.hash.slice(1);
   form.dispatchEvent(new Event('submit'));
 }
